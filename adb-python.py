@@ -7,113 +7,87 @@
 import sys
 import subprocess
 import os
+import time
+
+def get_system_time():
+    #format is 月日-时分秒
+    return time.strftime('%m%d-%H%M%S',time.localtime(time.time()))
+
+def shell_command(command, no_wait=None):
+    child = subprocess.Popen(command, shell=True)
+    if (no_wait == None):
+        child.wait()
+    return child;
 
 
 def adb_disconnect():
-    cmd = 'adb disconnect'
-    # child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    child = subprocess.Popen(cmd, shell=True)
-    child.wait()
+    command = 'adb disconnect'
+    shell_command(command)
 
 def adb_connect(ip_port):
-    try:
-        output = subprocess.check_output(['adb', 'connect', ip_port])
-    except subprocess.CalledProcessError as e:
-        output = e.output       # Output generated before error
-        code   = e.returncode   # Return code
-        print "error: CalledProcessError:" + output
-        return -1
-        # except subprocess.TimeoutExpired as e:
-        #    print "adb connect timeout"
-        #    sys.exit()
-    print output
-
-    output.decode('utf-8')
-
-    pos = output.find('connected to')
-    if pos<0:
-       print 'dbg: not find connected to'
-       sys.exit()
-
-    expect_output = 'connected to ' + ip_port + '\n'
-    # print cmp(output[len(output)-1:], '\n')
-    if (cmp(expect_output, output[pos:]) != 0):
-        # print cmp(expect_output, output[pos:])
-        # print 'dbg: connect output content:len = %s: %d' % (output[pos:], len(output[pos:]))
-        # print 'dbg: connect expect output content:len = %s: %d' % (expect_output, len(expect_output))
-        return -1
-    else:
-        return 0
+    command = 'adb connect ' + ip_port
+    shell_command(command)
 
 def adb_remount():
+    command = 'adb remount'
+    shell_command(command)
+
+def adb_logcat(dir_path):
+    #remove the char of '/' at end of dir path
+    if (cmp(dir_path[len(dir_path)-1], '/')==0):
+        tmp = dir_path[:len(dir_path)-1]
+    else:
+        tmp = dir_path
+    #file_path of log is generated
+    file_path = tmp + '/' + 'log-' + get_system_time() + '.log' 
+
+    command = 'adb logcat -v time > ' + file_path
+    print command
     try:
-        output = subprocess.check_output(['adb', 'remount'])
-    except subprocess.CalledProcessError as e:
-        output = e.output       # Output generated before error
-        code   = e.returncode   # Return code
-        print "error: CalledProcessError, " + output
-        return -1
-        # except subprocess.TimeoutExpired as e:
-        #    print "adb connect timeout"
-        #    sys.exit()
+        child = shell_command(command, 1)
+        child.wait()
+    except KeyboardInterrupt:
+        child.terminate()
 
-    print output
-    output.decode('utf-8')
-
-    pos = output.find('remount succeeded')
-    if pos<0:
-       print 'dbg: not find remount succeeded'
-       sys.exit()
-
-    expect_output = 'remount succeeded\n'
-    if (cmp(expect_output, output[pos:]) != 0):
-        # print 'dbg:remount output content:len is %s: %d' % (output, len(output))
-        # print 'dbg:remount expect output content:len is %s: %d' % (expect_output, len(expect_output))
-        return -1
-    else:       
-        return 0
-
-def shell_command(command):
-    child = subprocess.Popen(cmd, shell=True)
-    child.wait()
+def help_print():
+    print 'Usage adb-python <option> [param]'
+    print 'adb-python connect <host>[:port]'
+    print 'adb-python logcat <path>'
 
 # main
 if __name__ == "__main__":
     if (len(sys.argv) == 1):
-        print "usage: adb-connect <ip:port>"
+        help_print()
         sys.exit()
 
-    elif (len(sys.argv) != 2):
-        print "usage: adb-connect <ip:port>"
-        sys.exit()
+    if (cmp(sys.argv[1], 'connect') == 0):
+        if (len(sys.argv) == 3):
+            # get ip/port
+            pos = sys.argv[2].find(':')
+            if pos < 0:
+                ip = sys.argv[2]
+                port = "5555"
+            else:
+                ip = sys.argv[2][0:pos]
+                port= sys.argv[2][pos+1:]
 
-    elif (len(sys.argv) == 2):
-        pos = sys.argv[1].find(':')
-        if pos < 0:
-            ip = sys.argv[1]
-            port = "5555"
+            ip_port = ip + ':' + port
+            # print 'ip:port = ' + ip + ':' + port
+            adb_disconnect()
+            adb_connect(ip_port)
+            adb_remount()
         else:
-            ip = sys.argv[1][0:pos]
-            port= sys.argv[1][pos+1:]
-        
-        # print 'ip:port = ' + ip + ':' + port
-        # execute command 'adb disconnect'
-        cmd = 'adb disconnect'
-        shell_command(cmd)
+            print 'adb-python connect <host>[:port]'
 
-        ip_port = ip + ':' + port
-        cmd = 'adb connect ' + ip_port
-        shell_command(cmd)
+    elif (cmp(sys.argv[1],'logcat') == 0):
+        if (len(sys.argv) == 3):
+            logcat_path = sys.argv[2]
+            adb_logcat(logcat_path)
+        else:
+            print 'adb-python logcat <path>'
 
-        cmd = 'adb remount'
-        shell_command('adb remount')
+    else:
+        help_print()
 
-        #if adb_connect(ip_port) < 0:
-        #    print 'dbg: adb connect fail'
-        #    sys.exit()
-
-        #if adb_remount() < 0:
-        #    print 'dbg: adb remount fail'
-        #    sys.exit() 
 
 
