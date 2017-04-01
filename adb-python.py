@@ -10,14 +10,14 @@ import os
 import time
 
 def get_system_time():
-    #format is 月日-时分秒
+    #format is month+day-hour+minute+second
     return time.strftime('%m%d-%H%M%S',time.localtime(time.time()))
 
 def shell_command(command, no_wait=None):
     child = subprocess.Popen(command, shell=True)
     if (no_wait == None):
         child.wait()
-    return child;
+    return child
 
 
 def adb_disconnect():
